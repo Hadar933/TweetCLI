@@ -16,7 +16,7 @@ This is a simple CLI tool to post tweets with optional media attachments using t
 
 ```
 2. install requirements `pip install -r requirements`
-3. enter [X Developer Dashboard ](https://developer.twitter.com/en/portal/petition/essential/basic-info), ramp up an App and create a Consumer Keys, Bearer Token, and Access Token and Secret (under PRojects & Apps -> your app project -> keys and tokens)
+3. enter [X Developer Dashboard ](https://developer.twitter.com/en/portal/petition/essential/basic-info), ramp up an App, and create a Consumer Keys, Bearer Token, and Access Token and Secret (under PRojects & Apps -> your app project -> keys and tokens)
 4. Create a `.env` in the top scope and add the relevant keys:
 ```
 BEARER_TOKEN=...
@@ -33,7 +33,7 @@ CONSUMER_SECRET=...
 
 ## Usage
 To use the CLI tool, run the following command:
-tweet "Your tweet text here" -m path/to/media1 ... path/to/mediaN -u yourusername
+tweet "Your tweet text here" -m path/to/media1 ... path/to/mediaN -u username
 
 ### Options
 (run `tweet -h` to see)
