@@ -9,6 +9,7 @@ This is a simple CLI tool to post tweets with optional media attachments using t
 - 🌐 Optionally open the posted tweet in a web browser.
 
 ## Installation
+(Tested on Ubuntu 24.04)
 1. clone the repo
 ```sh
    git clone https://github.com/hadar933/tweetcli.git
