@@ -50,6 +50,6 @@ This will post the tweet "Check out this cool photo!" with the attached photo to
 
 ## Licence
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/Hadar933/TweetCLI/tree/main?tab=MIT-1-ov-file) file for details.
 
 
