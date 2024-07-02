@@ -1,4 +1,4 @@
-# Tweet CLI Tool
+#Tweet CLI Tool
 
 This is a simple CLI tool to post tweets with optional media attachments using the Twitter API. The tool supports splitting long tweets into multiple parts if necessary and logs the process for better visibility.
 
