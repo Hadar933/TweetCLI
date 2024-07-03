@@ -8,9 +8,10 @@ import tweepy
 from dotenv import load_dotenv
 import os
 from loguru import logger
-import re
 import webbrowser
 import argparse
+from pathlib import Path
+
 
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 # ⫷                                       CONSTANTS                                        ⫸
@@ -91,6 +92,20 @@ def _possibly_open_tweet(user_name: str, tweet_id: str) -> None:
         url = f"https://x.com/{user_name}/status/{tweet_id}"
         webbrowser.open(url)
 
+
+def get_latest_screenshot(directory: str) -> str | None:
+    try:
+        files = list(Path(directory).glob('*.png'))
+        if not files:
+            logger.error("No screenshot files found in the directory.")
+            return None
+        latest_file = max(files, key=os.path.getmtime)
+        logger.info(f"Latest screenshot file: {latest_file}")
+        return latest_file
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return None
+
     # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
     # ⫷                                       MAIN LOGIC                                       ⫸
     # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
@@ -99,9 +114,9 @@ def _possibly_open_tweet(user_name: str, tweet_id: str) -> None:
 def post(
     tweet: str,
     username: str,
-    media_paths: list[str] = None,
-    verbose: bool = True
-
+    media_paths: list[str],
+    verbose: bool,
+    screenshot_path: str
 ):
     """
     Post a tweet to the authenticated account.
@@ -135,20 +150,32 @@ def post(
     tweet_list = _split_tweet(tweet)
     if verbose:
         _log_tweet(tweet, tweet_list)
-    approve = input("Approve tweet? [y/n]: ")
-    if approve.lower() != 'y' and approve.lower() != 'yes':
-        if verbose:
-            logger.info("Tweet not approved. Exiting.")
-        return
+
     main_tweet = tweet_list[0]
+    media_ids = None
     if media_paths:
         media_ids = []
         for media_path in media_paths:
             media_id = api.media_upload(media_path).media_id
             media_ids.append(media_id)
+    else:
+        screenshot = input("Fetch latest screenshot? [y/n]: ")
+        if screenshot.lower() == 'y' or screenshot.lower() == 'yes':
+            screenshot_path = get_latest_screenshot(screenshot_path)
+            if screenshot_path:
+                media_id = api.media_upload(screenshot_path).media_id
+                media_ids = [media_id]
+
+    approve = input("Post tweet? [y/n]: ")
+    if approve.lower() != 'y' and approve.lower() != 'yes':
+        logger.info("Tweet not posted.")
+        return
+
+    if media_ids is not None:
         response = client.create_tweet(text=main_tweet, media_ids=media_ids)
     else:
         response = client.create_tweet(text=main_tweet)
+
     tweet_id = response.data['id']
     if len(tweet_list) > 1:
         for comment in tweet_list[1:]:
@@ -158,24 +185,36 @@ def post(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Post a tweet with optional media.")
-    parser.add_argument('tweet', type=str, help="Text content of the tweet")
-    parser.add_argument('-m', '--media', metavar='path', type=str,
-                        nargs='+', help="Path(s) to media file(s) to attach to the tweet")
-    parser.add_argument('-v', '--verbose', action='store_true', default=True,
-                        help="Print verbose logging information")
-    parser.add_argument('-u', '--username', type=str, default='SharvitHadar',
-                        help="Username of the account to post the tweet to.")
+    DEBUG = False
+    if DEBUG:
+        tweet = "This is a test tweet. "
+        media_paths = []
+        username = "SharvitHadar"
+        verbose = True
+    else:
+        parser = argparse.ArgumentParser(
+            description="Post a tweet with optional media.")
+        parser.add_argument('tweet', type=str,
+                            help="Text content of the tweet")
+        parser.add_argument('-m', '--media', metavar='path', type=str,
+                            nargs='+', help="Path(s) to media file(s) to attach to the tweet")
+        parser.add_argument('-v', '--verbose', action='store_true', default=True,
+                            help="Print verbose logging information")
+        parser.add_argument('-u', '--username', type=str, default='SharvitHadar',
+                            help="Username of the account to post the tweet to.")
+        parser.add_argument('-s', '--screenshot_path', type=str, default="/home/hadar/Pictures/Screenshots"
+                            help="Path to the latest screenshot to post with the tweet.")
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    tweet = args.tweet.strip()
-    media_paths = args.media if args.media else []
-    verbose = args.verbose
-    username = args.username
+        tweet = args.tweet.strip()
+        media_paths = args.media if args.media else []
+        verbose = args.verbose
+        username = args.username
+        screenshot_path = args.screenshot_path
 
-    post(tweet, username=username, media_paths=media_paths, verbose=verbose)
+    post(tweet, username=username, media_paths=media_paths,
+         verbose=verbose, screenshot_path=screenshot_path)
 
 
 if __name__ == "__main__":
