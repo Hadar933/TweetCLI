@@ -202,7 +202,7 @@ def main():
                             help="Print verbose logging information")
         parser.add_argument('-u', '--username', type=str, default='SharvitHadar',
                             help="Username of the account to post the tweet to.")
-        parser.add_argument('-s', '--screenshot_path', type=str, default="/home/hadar/Pictures/Screenshots"
+        parser.add_argument('-s', '--screenshot_path', type=str, default="/home/hadar/Pictures/Screenshots",
                             help="Path to the latest screenshot to post with the tweet.")
 
         args = parser.parse_args()
