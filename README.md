@@ -1,5 +1,6 @@
 # Tweet CLI Tool
 This is a simple CLI tool to post tweets with optional media attachments using the Twitter API. The tool supports splitting long tweets into multiple parts if necessary and logs the process for better visibility.
+![](https://github.com/Hadar933/TweetCLI/blob/main/media/tweet-cli-flow.gif)
 
 ## Features
 
@@ -51,8 +52,6 @@ tweet "Your tweet text here" -m path/to/media1 ... path/to/mediaN -u username
 tweet "Check out this cool photo!" -m /path/to/photo.jpg -u SharvitHadar
 ```
 This will post the tweet "Check out this cool photo!" with the attached photo to the specified user's account.
-
-![](https://github.com/Hadar933/TweetCLI/blob/main/media/tweet-cli-flow.gif)
 
 ## Licence
 
