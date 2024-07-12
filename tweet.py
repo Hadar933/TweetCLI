@@ -71,12 +71,13 @@ def _split_tweet(
 
 def _log_tweet(
         orig_tweet: str,
-        tweet_list: list[str]
+        tweet_list: list[str],
 ) -> None:
     """
     logs an informative representation of the tweet and its comments.
     :param orig_tweet: The original tweet, before splitting.
     :param tweet_list: List of tweets to log. (return value of _split_tweet)
+    :param automatic: Whether the tweet is being posted automatically.
     """
     logger.info(f"Tweet Length: {len(orig_tweet)}")
     logger.info(
@@ -134,14 +135,16 @@ def post(
     username: str,
     media_paths: list[str],
     verbose: bool,
-    screenshot_path: str
+    screenshot_path: str,
+    automatic: bool
 ):
     """
     Post a tweet to the authenticated account.
     :param tweet: The tweet to post - string or path to a file containing the tweet.
     :param media_path: Path(s) to an optional media to post with the tweet.
     :param verbose: Print logging information.
-
+    :param screenshot_path: Path to the screenshots directory.
+    :param automatic: Automatically post the tweet without asking for confirmation/other inputs.
     """
     if os.path.exists(tweet):
         with open(tweet, 'r') as f:
@@ -165,7 +168,8 @@ def post(
             consumer_secret=CONSUMER_SECRET
         )
     )
-    tweet = add_hashtags(tweet)
+    if not automatic:
+        tweet = add_hashtags(tweet)
     tweet_list = _split_tweet(tweet)
     if verbose:
         _log_tweet(tweet, tweet_list)
@@ -178,14 +182,15 @@ def post(
             media_id = api.media_upload(media_path).media_id
             media_ids.append(media_id)
     else:
-        screenshot = input("Fetch latest screenshot? [y/n]: ")
+        screenshot = 'n' if automatic else input(
+            "Fetch latest screenshot? [y/n]: ")
         if agree(screenshot):
             screenshot_path = get_latest_screenshot(screenshot_path)
             if screenshot_path:
                 media_id = api.media_upload(screenshot_path).media_id
                 media_ids = [media_id]
 
-    tweet_it = input("Post tweet? [y/n]: ")
+    tweet_it = 'y' if automatic else input("Post tweet? [y/n]: ")
     if not agree(tweet_it):
         logger.info("Tweet not posted.")
         return
@@ -199,8 +204,8 @@ def post(
     if len(tweet_list) > 1:
         for comment in tweet_list[1:]:
             client.create_tweet(text=comment, in_reply_to_tweet_id=tweet_id)
-
-    _possibly_open_tweet(username, tweet_id)
+    if not automatic:
+        _possibly_open_tweet(username, tweet_id)
 
 
 def main():
@@ -223,7 +228,8 @@ def main():
                             help="Username of the account to post the tweet to.")
         parser.add_argument('-s', '--screenshot_path', type=str, default="/home/hadar/Pictures/Screenshots",
                             help="Path to the screenshots directory, from which the latest image will be fetched when posting (if desired).")
-
+        parser.add_argument('-a', '--automatic', action='store_true',
+                            help="Automatically post the tweet without asking for confirmation/other inputs.")
         args = parser.parse_args()
 
         tweet = args.tweet.strip()
@@ -231,9 +237,10 @@ def main():
         verbose = args.verbose
         username = args.username
         screenshot_path = args.screenshot_path
+        automatic = args.automatic
 
     post(tweet, username=username, media_paths=media_paths,
-         verbose=verbose, screenshot_path=screenshot_path)
+         verbose=verbose, screenshot_path=screenshot_path, automatic=automatic)
 
 
 if __name__ == "__main__":
