@@ -50,9 +50,21 @@ tweet "Your tweet text here" -m path/to/media1 ... path/to/mediaN -u username
 
 ### Example:
 ```
-tweet "Check out this cool photo!" -m /path/to/photo.jpg -u SharvitHadar
+hadar@laptop:~$ tweet "TweetCLI helps me post 3 times a day without issues. 🎉"
+No hashtags found in tweet. Add? [y/n]: y
+Enter hashtags separated by commas: python, cli
+2024-07-12 19:10:07 | INFO | Tweet Length: 76
+2024-07-12 19:10:07 | INFO | Splitting to 1 parts[1 Tweet + 0 Comment(s)].
+Tweet:
+------
+TweetCLI helps me post 3 times a day without issues. 🎉 #python #cli
+==================================================
+
+Fetch latest screenshot? [y/n]: y
+2024-07-12 19:10:16 | INFO | Latest screenshot file: /example/img.jpg
+Post tweet? [y/n]: y
+Open tweet in browser? [y/n]: y
 ```
-This will post the tweet "Check out this cool photo!" with the attached photo to the specified user's account.
 
 ## Licence
 
