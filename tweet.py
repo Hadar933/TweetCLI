@@ -44,6 +44,10 @@ assert BEARER_TOKEN, "BEARER_TOKEN not found in .env"
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 
 
+def agree(user_input):
+    return user_input.lower() == 'y' or user_input.lower() == 'yes'
+
+
 def _split_tweet(
         tweet: str
 ) -> list[str]:
@@ -88,7 +92,7 @@ def _log_tweet(
 
 def _possibly_open_tweet(user_name: str, tweet_id: str) -> None:
     choice = input(f"Open tweet in browser? [y/n]: ")
-    if choice.lower() == 'y' or choice.lower() == 'yes':
+    if agree(choice):
         url = f"https://x.com/{user_name}/status/{tweet_id}"
         webbrowser.open(url)
 
@@ -105,6 +109,20 @@ def get_latest_screenshot(directory: str) -> str | None:
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         return None
+
+
+def add_hashtags(tweet: str) -> str:
+    """ if the tweet is missing hashtags, prompt the user to add them. """
+    if "#" not in tweet:
+        add_hashtags = input("No hashtags found in tweet. Add? [y/n]: ")
+        if agree(add_hashtags):
+            input_hashtags = input("Enter hashtags separated by commas:")
+            hashtags = [
+                f"#{tag.strip()}" if '#' not in tag else tag.strip()
+                for tag in input_hashtags.split(",")
+            ]
+            tweet += " " + " ".join(hashtags)
+    return tweet
 
     # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
     # ⫷                                       MAIN LOGIC                                       ⫸
@@ -147,6 +165,7 @@ def post(
             consumer_secret=CONSUMER_SECRET
         )
     )
+    tweet = add_hashtags(tweet)
     tweet_list = _split_tweet(tweet)
     if verbose:
         _log_tweet(tweet, tweet_list)
@@ -160,14 +179,14 @@ def post(
             media_ids.append(media_id)
     else:
         screenshot = input("Fetch latest screenshot? [y/n]: ")
-        if screenshot.lower() == 'y' or screenshot.lower() == 'yes':
+        if agree(screenshot):
             screenshot_path = get_latest_screenshot(screenshot_path)
             if screenshot_path:
                 media_id = api.media_upload(screenshot_path).media_id
                 media_ids = [media_id]
 
-    approve = input("Post tweet? [y/n]: ")
-    if approve.lower() != 'y' and approve.lower() != 'yes':
+    tweet_it = input("Post tweet? [y/n]: ")
+    if not agree(tweet_it):
         logger.info("Tweet not posted.")
         return
 

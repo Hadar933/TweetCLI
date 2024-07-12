@@ -4,8 +4,9 @@ This is a simple CLI tool to post tweets with optional media attachments using t
 
 ## Features
 
-- 📷 Post a tweet with text and optional media.
+- 📷 Post a tweet with text and optional media (with automated use-last-screenshot option).
 - ✂️ Automatically split long tweets into multiple parts.
+- #️⃣ prompt the user to add hashtags, if forgotten.
 - 📝 Log detailed information about the tweet and its comments.
 - 🌐 Optionally open the posted tweet in a web browser.
 
