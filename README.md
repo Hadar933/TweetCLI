@@ -2,6 +2,18 @@
 This is a simple CLI tool to post tweets with optional media attachments using the Twitter API. The tool supports splitting long tweets into multiple parts if necessary and logs the process for better visibility.
 ![](https://github.com/Hadar933/TweetCLI/blob/main/media/tweet-cli-flow.gif)
 
+## New
+1. Use the `-a` or `--automate` to quickly tweet without having to answer user inputs. Usage: 
+   ```
+   tweet "heres my automated tweet" -a
+   ```
+2. pipe `tweet` with `at` to schedule tweets for later (only works with tweet automation `-a`):
+   ```
+   tweet "Hi from 1 minute to the future" -a | at now + 1 minute
+   ```
+   Note that this requires installing `at`: use `sudo apt-get install at`
+
+
 ## Features
 
 - 📷 Post a tweet with text and optional media (with automated use-last-screenshot option).
@@ -40,12 +52,21 @@ tweet "Your tweet text here" -m path/to/media1 ... path/to/mediaN -u username
 
 ### Options
 (run `tweet -h` to see)
--  tweet: Text content of the tweet.
-- -m path [path ...], --media path [path ...]: Path(s) to media file(s) to attach to the tweet.
-- -v, --verbose: Print verbose logging information (default: True).
-- -u USERNAME, --username USERNAME: Username of the account to post the tweet to.
-- -s SCREENSHOT_PATH, --screenshot_path SCREENSHOT_PATH
-                        Path to the screenshots directory, from which the latest image will be fetched when posting (if desired).
+positional arguments:
+  tweet                 Text content of the tweet
+
+options:
+  * -h, --help            show this help message and exit
+  * -m path [path ...], --media path [path ...]
+                        Path(s) to media file(s) to attach to the tweet
+  * -v, --verbose         Print verbose logging information
+  * -u USERNAME, --username USERNAME
+                        Username of the account to post the tweet to.
+  * -s SCREENSHOT_PATH, --screenshot_path SCREENSHOT_PATH
+                        Path to the screenshots directory, from which the latest image will be
+                        fetched when posting (if desired).
+  * -a, --automatic       Automatically post the tweet without asking for confirmation/other
+                        inputs.
 
 
 ### Example:
