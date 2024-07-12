@@ -45,7 +45,7 @@ tweet "Your tweet text here" -m path/to/media1 ... path/to/mediaN -u username
 - -v, --verbose: Print verbose logging information (default: True).
 - -u USERNAME, --username USERNAME: Username of the account to post the tweet to.
 - -s SCREENSHOT_PATH, --screenshot_path SCREENSHOT_PATH
-                        Path to the directory that stores screenshots.
+                        Path to the screenshots directory, from which the latest image will be fetched when posting (if desired).
 
 
 ### Example:

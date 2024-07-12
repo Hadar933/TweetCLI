@@ -222,7 +222,7 @@ def main():
         parser.add_argument('-u', '--username', type=str, default='SharvitHadar',
                             help="Username of the account to post the tweet to.")
         parser.add_argument('-s', '--screenshot_path', type=str, default="/home/hadar/Pictures/Screenshots",
-                            help="Path to the latest screenshot to post with the tweet.")
+                            help="Path to the screenshots directory, from which the latest image will be fetched when posting (if desired).")
 
         args = parser.parse_args()
 
