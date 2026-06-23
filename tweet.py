@@ -7,6 +7,7 @@
 import tweepy
 from dotenv import load_dotenv
 import os
+import requests
 from loguru import logger
 import webbrowser
 import argparse
@@ -25,19 +26,33 @@ MAX_TWEET_LEN -= len(SEE_NEXT_TWEET)
 # ⫷                                       lOADING ENV                                      ⫸
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 
-loaded = load_dotenv()
-if not loaded:
-    raise ValueError("No .env file found")
-CONSUMER_KEY = os.getenv("CONSUMER_KEY")
-assert CONSUMER_KEY, "CONSUMER_KEY not found in .env"
-CONSUMER_SECRET = os.getenv("CONSUMER_SECRET")
-assert CONSUMER_SECRET, "CONSUMER_SECRET not found in .env"
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-assert ACCESS_TOKEN, "ACCESS_TOKEN not found in .env"
-ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
-assert ACCESS_TOKEN_SECRET, "ACCESS_TOKEN_SECRET not found in .env"
-BEARER_TOKEN = os.getenv("BEARER_TOKEN")
-assert BEARER_TOKEN, "BEARER_TOKEN not found in .env"
+load_dotenv()
+
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"{name} not found in environment or .env")
+    return value
+
+
+BACKEND = os.getenv("TWEETCLI_BACKEND", "twitter").strip().lower()
+XQUIK_API_BASE_URL = os.getenv(
+    "XQUIK_API_BASE_URL",
+    "https://xquik.com/api/v1"
+).rstrip("/")
+
+if BACKEND == "twitter":
+    CONSUMER_KEY = _required_env("CONSUMER_KEY")
+    CONSUMER_SECRET = _required_env("CONSUMER_SECRET")
+    ACCESS_TOKEN = _required_env("ACCESS_TOKEN")
+    ACCESS_TOKEN_SECRET = _required_env("ACCESS_TOKEN_SECRET")
+    BEARER_TOKEN = _required_env("BEARER_TOKEN")
+elif BACKEND == "xquik":
+    XQUIK_API_KEY = _required_env("XQUIK_API_KEY")
+    XQUIK_ACCOUNT = _required_env("XQUIK_ACCOUNT")
+else:
+    raise ValueError("TWEETCLI_BACKEND must be either 'twitter' or 'xquik'")
 
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 # ⫷                                 Utility Functions                                       ⫸
@@ -130,6 +145,44 @@ def add_hashtags(tweet: str) -> str:
     # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 
 
+def _post_xquik_tweet(tweet: str) -> str | None:
+    response = requests.post(
+        f"{XQUIK_API_BASE_URL}/x/tweets",
+        headers={
+            "Authorization": f"Bearer {XQUIK_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "account": XQUIK_ACCOUNT,
+            "text": tweet,
+        },
+        timeout=30,
+    )
+
+    try:
+        response_data = response.json()
+    except ValueError:
+        response_data = {}
+
+    if response.status_code == 202:
+        write_action_id = response_data.get("writeActionId")
+        logger.info(f"Xquik accepted the tweet. Write action: {write_action_id}")
+        return None
+
+    response.raise_for_status()
+
+    tweet_id = (
+        response_data.get("tweetId")
+        or response_data.get("id")
+        or response_data.get("data", {}).get("id")
+    )
+    if not tweet_id:
+        raise ValueError("Xquik response did not include a tweet ID.")
+
+    logger.info(f"Xquik posted tweet ID: {tweet_id}")
+    return str(tweet_id)
+
+
 def post(
     tweet: str,
     username: str,
@@ -173,6 +226,28 @@ def post(
     tweet_list = _split_tweet(tweet)
     if verbose:
         _log_tweet(tweet, tweet_list)
+
+    if BACKEND == "xquik":
+        if media_paths:
+            raise ValueError(
+                "Xquik backend in TweetCLI supports text tweets only. "
+                "Use the default Twitter backend for local media uploads."
+            )
+        if len(tweet_list) > 1:
+            raise ValueError(
+                "Xquik backend in TweetCLI posts one text tweet at a time. "
+                "Shorten the tweet or use the default Twitter backend for threads."
+            )
+
+        tweet_it = 'y' if automatic else input("Post tweet? [y/n]: ")
+        if not agree(tweet_it):
+            logger.info("Tweet not posted.")
+            return
+
+        tweet_id = _post_xquik_tweet(tweet_list[0])
+        if tweet_id and not automatic:
+            _possibly_open_tweet(XQUIK_ACCOUNT.lstrip("@"), tweet_id)
+        return
 
     main_tweet = tweet_list[0]
     media_ids = None
