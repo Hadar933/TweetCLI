@@ -34,12 +34,20 @@ This is a simple CLI tool to post tweets with optional media attachments using t
 3. enter [X Developer Dashboard ](https://developer.twitter.com/en/portal/petition/essential/basic-info), ramp up an App, and create a Consumer Keys, Bearer Token, and Access Token and Secret (under PRojects & Apps -> your app project -> keys and tokens)
 4. Create a `.env` in the top scope and add the relevant keys:
 ```
+TWEETCLI_BACKEND=twitter
 BEARER_TOKEN=...
 ACCESS_TOKEN=...
 ACCESS_TOKEN_SECRET=...
 CONSUMER_KEY=...
 CONSUMER_SECRET=...
 ```
+   To post text tweets through Xquik instead, set:
+```
+TWEETCLI_BACKEND=xquik
+XQUIK_API_KEY=...
+XQUIK_ACCOUNT=@your_handle
+```
+   Xquik mode posts single text tweets through `POST /x/tweets`. It creates one idempotency key and follows the returned write status until completion. Check the write in Xquik before retrying after an interrupted request. Keep the default Twitter backend for local media uploads and threaded posts.
 5. Set an alias: Add the following line to your .bashrc or .bash_profile (using `nano ~/.bashrc` for example to open it):
    ```
    alias tweet="source /path/to/.venv/bin/activate; python /path/to/tweetcli/tweet.py"
@@ -91,4 +99,4 @@ Open tweet in browser? [y/n]: y
 
 This project is licensed under the MIT License - see the [LICENSE](https://github.com/Hadar933/TweetCLI/tree/main?tab=MIT-1-ov-file) file for details.
 
-
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.

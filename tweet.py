@@ -4,14 +4,18 @@
 # ⫷                                       IMPORTS                                          ⫸
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 
+import argparse
+import os
+import time
+import webbrowser
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
+from uuid import uuid4
+
+import requests
 import tweepy
 from dotenv import load_dotenv
-import os
 from loguru import logger
-import webbrowser
-import argparse
-from pathlib import Path
-
 
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 # ⫷                                       CONSTANTS                                        ⫸
@@ -20,24 +24,36 @@ from pathlib import Path
 SEE_NEXT_TWEET = "[...]"
 MAX_TWEET_LEN = 280
 MAX_TWEET_LEN -= len(SEE_NEXT_TWEET)
+XQUIK_API_BASE_URL = "https://xquik.com/api/v1"
+XQUIK_POLL_TIMEOUT_SECONDS = 60
 
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 # ⫷                                       lOADING ENV                                      ⫸
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 
-loaded = load_dotenv()
-if not loaded:
-    raise ValueError("No .env file found")
-CONSUMER_KEY = os.getenv("CONSUMER_KEY")
-assert CONSUMER_KEY, "CONSUMER_KEY not found in .env"
-CONSUMER_SECRET = os.getenv("CONSUMER_SECRET")
-assert CONSUMER_SECRET, "CONSUMER_SECRET not found in .env"
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-assert ACCESS_TOKEN, "ACCESS_TOKEN not found in .env"
-ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
-assert ACCESS_TOKEN_SECRET, "ACCESS_TOKEN_SECRET not found in .env"
-BEARER_TOKEN = os.getenv("BEARER_TOKEN")
-assert BEARER_TOKEN, "BEARER_TOKEN not found in .env"
+load_dotenv()
+
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise ValueError(f"{name} not found in environment or .env")
+    return value
+
+
+BACKEND = os.getenv("TWEETCLI_BACKEND", "twitter").strip().lower()
+
+if BACKEND == "twitter":
+    CONSUMER_KEY = _required_env("CONSUMER_KEY")
+    CONSUMER_SECRET = _required_env("CONSUMER_SECRET")
+    ACCESS_TOKEN = _required_env("ACCESS_TOKEN")
+    ACCESS_TOKEN_SECRET = _required_env("ACCESS_TOKEN_SECRET")
+    BEARER_TOKEN = _required_env("BEARER_TOKEN")
+elif BACKEND == "xquik":
+    XQUIK_API_KEY = _required_env("XQUIK_API_KEY")
+    XQUIK_ACCOUNT = _required_env("XQUIK_ACCOUNT")
+else:
+    raise ValueError("TWEETCLI_BACKEND must be either 'twitter' or 'xquik'")
 
 # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 # ⫷                                 Utility Functions                                       ⫸
@@ -61,10 +77,9 @@ def _split_tweet(
         last_point_idx = truncated.rfind(".")
         last_comma_idx = truncated.rfind(",")
         last_idx = max(last_point_idx, last_comma_idx)
-        if last_idx == -1:  # If , split at MAX_TWEET_LEN
-            last_idx = MAX_TWEET_LEN
-        tweet_list.append(tweet[:last_idx]+SEE_NEXT_TWEET)
-        tweet = tweet[last_idx + 1:]
+        split_idx = MAX_TWEET_LEN if last_idx == -1 else last_idx + 1
+        tweet_list.append(tweet[:split_idx] + SEE_NEXT_TWEET)
+        tweet = tweet[split_idx:]
     tweet_list.append(tweet)
     return tweet_list
 
@@ -130,6 +145,132 @@ def add_hashtags(tweet: str) -> str:
     # ⪦⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⩶⪧
 
 
+def _xquik_response_data(response: requests.Response) -> dict:
+    try:
+        response_data = response.json()
+    except ValueError as error:
+        raise ValueError(
+            "Xquik returned an invalid response. Check the write in Xquik."
+        ) from error
+    if not isinstance(response_data, dict):
+        raise TypeError(
+            "Xquik returned an invalid response. Check the write in Xquik."
+        )
+    return response_data
+
+
+def _xquik_poll_url(response: requests.Response, response_data: dict) -> str:
+    status_url = response_data.get("statusUrl") or response.headers.get("Location")
+    if not isinstance(status_url, str):
+        raise TypeError(
+            "Xquik did not return a status URL. Check the write in Xquik."
+        )
+
+    parsed_url = urlparse(status_url)
+    status_prefix = "/api/v1/x/write-actions/"
+    action_id = parsed_url.path.removeprefix(status_prefix)
+    if (
+        parsed_url.scheme
+        or parsed_url.netloc
+        or not parsed_url.path.startswith(status_prefix)
+        or not action_id
+        or "/" in action_id
+    ):
+        raise ValueError(
+            "Xquik returned an unsafe status URL. Check the write in Xquik."
+        )
+    return urljoin(XQUIK_API_BASE_URL, status_url)
+
+
+def _xquik_poll_delay(response: requests.Response, response_data: dict) -> float:
+    poll_after_ms = response_data.get("pollAfterMs")
+    if isinstance(poll_after_ms, (int, float)) and poll_after_ms >= 0:
+        return max(poll_after_ms / 1000, 0.1)
+
+    retry_after = response.headers.get("Retry-After")
+    if retry_after is not None:
+        try:
+            return max(float(retry_after), 0.1)
+        except ValueError:
+            pass
+    return 2.0
+
+
+def _xquik_tweet_id(response_data: dict) -> str:
+    if (
+        response_data.get("terminal") is not True
+        or response_data.get("success") is not True
+    ):
+        raise ValueError(
+            "Xquik could not confirm the tweet. Check the write before retrying."
+        )
+
+    tweet_id = response_data.get("tweetId")
+    if not tweet_id and response_data.get("action") == "create_tweet":
+        tweet_id = response_data.get("targetId")
+
+    result = response_data.get("result")
+    if (
+        not tweet_id
+        and isinstance(result, dict)
+        and result.get("type") == "tweet"
+    ):
+        tweet_id = result.get("id")
+
+    if not isinstance(tweet_id, (str, int)) or not str(tweet_id):
+        raise ValueError(
+            "Xquik did not return a confirmed tweet ID. Check the write in Xquik."
+        )
+    return str(tweet_id)
+
+
+def _post_xquik_tweet(
+    tweet: str,
+    session: requests.Session | None = None,
+) -> str:
+    session = session or requests.Session()
+    response = session.post(
+        f"{XQUIK_API_BASE_URL}/x/tweets",
+        headers={
+            "x-api-key": XQUIK_API_KEY,
+            "Idempotency-Key": str(uuid4()),
+            "Content-Type": "application/json",
+        },
+        json={
+            "account": XQUIK_ACCOUNT,
+            "text": tweet,
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    response_data = _xquik_response_data(response)
+
+    deadline = time.monotonic() + XQUIK_POLL_TIMEOUT_SECONDS
+    while response_data.get("terminal") is not True:
+        write_action_id = response_data.get("writeActionId")
+        logger.info(f"Xquik is processing the tweet. Write action: {write_action_id}")
+        poll_url = _xquik_poll_url(response, response_data)
+        delay = _xquik_poll_delay(response, response_data)
+        if time.monotonic() + delay > deadline:
+            raise TimeoutError(
+                "Xquik is still processing the tweet. "
+                "Check the write in Xquik before retrying."
+            )
+        time.sleep(delay)
+        response = session.get(
+            poll_url,
+            headers={"x-api-key": XQUIK_API_KEY},
+            timeout=30,
+        )
+        response.raise_for_status()
+        response_data = _xquik_response_data(response)
+
+    tweet_id = _xquik_tweet_id(response_data)
+
+    logger.info(f"Xquik posted tweet ID: {tweet_id}")
+    return tweet_id
+
+
 def post(
     tweet: str,
     username: str,
@@ -153,6 +294,34 @@ def post(
         for media_path in media_paths:
             if not os.path.exists(media_path):
                 raise FileNotFoundError(f"Media file {media_path} not found.")
+    if not automatic:
+        tweet = add_hashtags(tweet)
+    tweet_list = _split_tweet(tweet)
+    if verbose:
+        _log_tweet(tweet, tweet_list)
+
+    if BACKEND == "xquik":
+        if media_paths:
+            raise ValueError(
+                "Xquik backend in TweetCLI supports text tweets only. "
+                "Use the default Twitter backend for local media uploads."
+            )
+        if len(tweet_list) > 1:
+            raise ValueError(
+                "Xquik backend in TweetCLI posts one text tweet at a time. "
+                "Shorten the tweet or use the default Twitter backend for threads."
+            )
+
+        tweet_it = 'y' if automatic else input("Post tweet? [y/n]: ")
+        if not agree(tweet_it):
+            logger.info("Tweet not posted.")
+            return
+
+        tweet_id = _post_xquik_tweet(tweet_list[0])
+        if not automatic:
+            _possibly_open_tweet(XQUIK_ACCOUNT.lstrip("@"), tweet_id)
+        return
+
     client = tweepy.Client(
         access_token=ACCESS_TOKEN,
         access_token_secret=ACCESS_TOKEN_SECRET,
@@ -168,12 +337,6 @@ def post(
             consumer_secret=CONSUMER_SECRET
         )
     )
-    if not automatic:
-        tweet = add_hashtags(tweet)
-    tweet_list = _split_tweet(tweet)
-    if verbose:
-        _log_tweet(tweet, tweet_list)
-
     main_tweet = tweet_list[0]
     media_ids = None
     if media_paths:
