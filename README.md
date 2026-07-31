@@ -46,9 +46,8 @@ CONSUMER_SECRET=...
 TWEETCLI_BACKEND=xquik
 XQUIK_API_KEY=...
 XQUIK_ACCOUNT=@your_handle
-XQUIK_API_BASE_URL=https://xquik.com/api/v1
 ```
-   Xquik mode posts single text tweets through `POST /x/tweets`. Keep the default Twitter backend for local media uploads and threaded posts.
+   Xquik mode posts single text tweets through `POST /x/tweets`. It creates one idempotency key and follows the returned write status until completion. Check the write in Xquik before retrying after an interrupted request. Keep the default Twitter backend for local media uploads and threaded posts.
 5. Set an alias: Add the following line to your .bashrc or .bash_profile (using `nano ~/.bashrc` for example to open it):
    ```
    alias tweet="source /path/to/.venv/bin/activate; python /path/to/tweetcli/tweet.py"
@@ -100,3 +99,4 @@ Open tweet in browser? [y/n]: y
 
 This project is licensed under the MIT License - see the [LICENSE](https://github.com/Hadar933/TweetCLI/tree/main?tab=MIT-1-ov-file) file for details.
 
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
